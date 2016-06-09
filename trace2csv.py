@@ -3,6 +3,7 @@
 import re
 import sys
 import argparse
+from collections import defaultdict
 
 # TODO: support rollover timestamps (23:59:59.999999 -> 00:00:00.000000)
 # TODO: support multi process single log file
@@ -12,12 +13,15 @@ parser= argparse.ArgumentParser (description='''Convert l/strace logs into csv.
     Those tools must be run with the -ff and -T options.''')
 group= parser.add_mutually_exclusive_group (required=True)
 group.add_argument ('-r', '--relative', action='store_true',
-                    help= '''the log files have relative timestamps;
+                    help= '''The log files have relative timestamps;
                              that is, they were generated with l/strace's -r option''')
 group.add_argument ('-t', '--timestamp', action='count', default=0,
-                     help= '''the log files have absolute timestamps;
+                     help= '''The log files have absolute timestamps;
                               that is, they were generated with some amount of
                               l/strace's -t option, two minimum''')
+parser.add_argument ('-c', '--histogram', action='store_true',
+                     help='''Make the output to be in the form
+                            'syscall,count,min,avg,max,total'.''')
 parser.add_argument ('logfiles', metavar='logfile', nargs='+')
 args= parser.parse_args ()
 
@@ -67,6 +71,30 @@ just_time= re.compile ('\s*%s' % timestamp_parser)
 
 width= len (args.logfiles)
 
+# holds the histogram in the form
+# hitogram[pid][fun] = [count, min, max, total]
+# itś a list because itś easier at the end to just modify this and print
+# avg is skipped because it's calculable as total/count
+histogram= defaultdict (dict)
+
+def process_line (fun, start, time, i):
+    if args.histogram:
+        time= float (time)
+        if histogram[i].get (fun, None) is None:
+            histogram[i][fun]= [ 1, time, time, time ]  # time and time again :)
+        else:
+            count, mn, mx, total= histogram[i][fun]
+            count+= 1
+            if time<mn:
+                mn= time
+            if time>mx:
+                mx= time
+            total+= time
+
+            histogram[i][fun]= [ count, mn, mx, total ]
+    else:
+        write_line (fun, start, time, i)
+
 def write_line (fun, start, time, i):
     data= [ "" for n in range (width+2) ]
     data[0]= fun
@@ -88,7 +116,10 @@ def hms_mic2s_mic (h, m, s):
 min_time= 0.0
 
 # print header
-print ('fun,start_time,'+','.join (args.logfiles))  # TODO: use PIDs if available
+if args.histogram:
+    print (','.join ([ 'fun,count,min,avg,max,total' ]*width))
+else:
+    print ('fun,start_time,'+','.join (args.logfiles))  # TODO: use PIDs if available
 
 for i, f in enumerate (args.logfiles):
     start_times= {}
@@ -99,7 +130,7 @@ for i, f in enumerate (args.logfiles):
             h, m, start, fun, time= g.groups ()
 
             if float (time)>=min_time:
-                write_line (fun, repr (hms_mic2s_mic (h, m, start)), time, i)
+                process_line (fun, repr (hms_mic2s_mic (h, m, start)), time, i)
 
             continue
 
@@ -116,7 +147,7 @@ for i, f in enumerate (args.logfiles):
             start= start_times.pop ((fun, len (level)))
 
             if time>=min_time:
-                write_line (fun, repr (start), time, i)
+                process_line (fun, repr (start), time, i)
 
             continue
 
@@ -140,4 +171,31 @@ for i, f in enumerate (args.logfiles):
         time= hms_mic2s_mic (h, m, end)-start
 
         if time>=min_time:
-            write_line (fun, repr (start), str(time), i)
+            process_line (fun, repr (start), str(time), i)
+
+if args.histogram:
+    # we can do this only once we collected all the data
+    funcs= set ([ keys
+                      for i in histogram.keys()
+                          for keys in histogram[i].keys () ])
+
+    for fun in sorted (funcs):
+        data= []
+        for i in range (width):
+            # count,min,max,total
+            inner_data= histogram[i].get (fun, [0, 0, 0, 0])
+            # between min ([1]) and max ([2])
+            try:
+                inner_data.insert (2, inner_data[-1]/inner_data[0])
+            except ZeroDivisionError:
+                inner_data.insert (2, 0)
+
+            data.extend ([ fun, str (inner_data[0]) ]+
+                         [ "%15.8f" % d for d in inner_data[1:] ])
+
+        print (','.join (data))
+
+    print ('''We recommend that you organize the chart as follows:
+* Count goes in a secondary Y axis.
+* The primary Y axis is logarithmic, with a lower value of 0.000001.
+* You could sort the rows by name, count or total time.''', file=sys.stderr)
