@@ -8,12 +8,16 @@ import argparse
 # TODO: support multi process single log file
 # TODO: flatten multi process
 
-parser= argparse.ArgumentParser (description='Convert l/strace logs into csv')
+parser= argparse.ArgumentParser (description='''Convert l/strace logs into csv.
+    Those tools must be run with the -ff and -T options.''')
 group= parser.add_mutually_exclusive_group (required=True)
 group.add_argument ('-r', '--relative', action='store_true',
-                    help= '''the log files have relative timestamps; that is, they were generated with l/strace's -r option''')
+                    help= '''the log files have relative timestamps;
+                             that is, they were generated with l/strace's -r option''')
 group.add_argument ('-t', '--timestamp', action='count', default=0,
-                     help= '''the log files have absolute timestamps; that is, they were generated with some amount of l/strace's -t option''')
+                     help= '''the log files have absolute timestamps;
+                              that is, they were generated with some amount of
+                              l/strace's -t option, two minimum''')
 parser.add_argument ('logfiles', metavar='logfile', nargs='+')
 args= parser.parse_args ()
 
