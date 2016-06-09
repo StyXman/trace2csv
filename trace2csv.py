@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 
 import re
 import sys
@@ -9,7 +9,6 @@ import argparse
 # TODO: flatten multi process
 
 parser= argparse.ArgumentParser (description='Convert l/strace logs into csv')
-# parser.
 group= parser.add_mutually_exclusive_group (required=True)
 group.add_argument ('-r', '--relative', action='store_true',
                     help= '''the log files have relative timestamps; that is, they were generated with l/strace's -r option''')
@@ -70,7 +69,7 @@ def write_line (fun, start, time, i):
     data[1]= start
     data[i+2]= time
 
-    print ",".join (data)
+    print (",".join (data))
 
 def hms_mic2s_mic (h, m, s):
     if h is None:
