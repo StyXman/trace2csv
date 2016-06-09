@@ -87,6 +87,9 @@ def hms_mic2s_mic (h, m, s):
 # min_time= float (sys.argv[1])
 min_time= 0.0
 
+# print header
+print ('fun,start_time,'+','.join (args.logfiles))  # TODO: use PIDs if available
+
 for i, f in enumerate (args.logfiles):
     start_times= {}
 
