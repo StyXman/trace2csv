@@ -68,7 +68,7 @@ just_time= re.compile ('\s*%s' % timestamp_parser)
 width= len (args.logfiles)
 
 def write_line (fun, start, time, i):
-    data= [ "" for n in xrange (width+2) ]
+    data= [ "" for n in range (width+2) ]
     data[0]= fun
     data[1]= start
     data[i+2]= time
